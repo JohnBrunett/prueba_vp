@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador Dossier · Vision Property</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --teal:#2B5D5E;--teal-dk:#1c3d3e;--teal-lt:#3a7a7c;
+  --gold:#C4A35A;--text:#1a1a1a;--muted:#888;
+  --border:#e0ddd8;--bg:#f0efeb;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ── LAYOUT ── */
+#app{display:flex;min-height:100vh;}
+#sidebar{width:224px;background:var(--teal-dk);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:50;}
+#main{margin-left:224px;flex:1;padding:28px 32px 80px;}
+
+/* Sidebar */
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sb-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;letter-spacing:3px;color:white;}
+.sb-sub{font-size:7px;letter-spacing:4px;color:rgba(255,255,255,.32);text-transform:uppercase;margin-top:2px;}
+.sb-sec{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.26);padding:13px 16px 4px;font-weight:600;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:12px;color:rgba(255,255,255,.55);cursor:pointer;transition:all .2s;border-left:2px solid transparent;}
+.sb-item:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.05);}
+.sb-item.active{color:white;background:rgba(255,255,255,.1);border-left-color:var(--gold);}
+.sb-item.done .sb-n{background:var(--gold);border-color:var(--gold);color:#1c3d3e;font-size:10px;}
+.sb-n{width:19px;height:19px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+.sb-foot{margin-top:auto;padding:13px 16px;border-top:1px solid rgba(255,255,255,.08);}
+.sb-bar{height:2.5px;background:rgba(255,255,255,.12);border-radius:2px;margin-bottom:6px;}
+.sb-bar-f{height:100%;background:var(--gold);border-radius:2px;transition:width .4s;}
+.sb-bar-l{font-size:9.5px;color:rgba(255,255,255,.3);}
+
+.pt{margin-bottom:20px;}
+.pt h2{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;}
+.pt p{color:var(--muted);font-size:12.5px;margin-top:3px;}
+
+/* Cards */
+.card{background:white;border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:11px;}
+.card-t{font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.card-t::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Form */
+.fg{display:grid;gap:10px;margin-bottom:10px;}
+.fg2{grid-template-columns:1fr 1fr;}
+.fg3{grid-template-columns:1fr 1fr 1fr;}
+.fg4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.fg1{grid-template-columns:1fr;}
+.grp{display:flex;flex-direction:column;gap:4px;position:relative;}
+.grp label{font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:500;}
+input[type=text],textarea,select{border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:#fcfcfc;outline:none;transition:border-color .2s;width:100%;}
+input:focus,textarea:focus{border-color:var(--teal);background:white;}
+.field-ok{border-color:#a5c8a5!important;background:#f8fff8!important;}
+
+/* Autocomplete */
+.ac-wrap{position:relative;}
+.ac-drop{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--teal);border-top:none;border-radius:0 0 8px 8px;z-index:1000;box-shadow:0 6px 20px rgba(0,0,0,.1);max-height:280px;overflow-y:auto;display:none;}
+.ac-drop.open{display:block;}
+.ac-item{padding:10px 13px;font-size:12.5px;cursor:pointer;border-bottom:1px solid #f0f0ee;line-height:1.35;}
+.ac-item:hover{background:#f0f7f7;}
+.ac-item strong{color:var(--teal);}
+.ac-item small{color:var(--muted);font-size:11px;}
+.ac-loading,.ac-empty{padding:10px 13px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:7px;}
+.auto-tag{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:9px;background:var(--teal);color:white;padding:2px 7px;border-radius:10px;display:none;}
+.auto-tag.show{display:block;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:none;transition:all .2s;}
+.btn-teal{background:var(--teal);color:white;}.btn-teal:hover{background:var(--teal-lt);}
+.btn-teal:disabled{opacity:.4;cursor:not-allowed;}
+.btn-out{background:white;color:var(--text);border:1px solid var(--border);}.btn-out:hover{border-color:var(--teal);color:var(--teal);}
+.btn-gold{background:var(--gold);color:white;}.btn-gold:hover{filter:brightness(1.08);}
+.btn-mtz{background:#6C4BDB;color:white;}.btn-mtz:hover{background:#5a3ec4;}
+.btn-red{background:#C0392B;color:white;}.btn-red:hover{background:#a93226;}
+.btn-orange{background:#E67E22;color:white;}.btn-orange:hover{background:#ca6f1e;}
+.btn-sm{padding:6px 13px;font-size:11.5px;}
+.sec-acts{display:flex;justify-content:flex-end;gap:9px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+
+/* Spinner */
+.spin{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.dots::after{animation:dt 1.4s infinite;content:'';}
+@keyframes dt{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+.load-row{display:none;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.load-row.on{display:flex;}
+
+/* ── MAP ── */
+.map-wrap{background:white;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:11px;}
+.map-tb{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.map-tb-t{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);font-weight:600;margin-right:4px;}
+.zb{padding:5px 11px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:white;color:var(--muted);transition:all .18s;}
+.zb:hover,.zb.on{background:var(--teal);color:white;border-color:var(--teal);}
+.sep{width:1px;height:18px;background:var(--border);margin:0 1px;}
+.cap-btn{background:var(--teal-dk);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
+.cap-btn:hover{background:#111;}.cap-btn:disabled{opacity:.4;cursor:not-allowed;}
+.map-status{font-size:11px;color:var(--muted);margin-left:auto;}
+#the-map{height:420px;width:100%;}
+.poi-leg{display:flex;flex-wrap:wrap;gap:6px;padding:9px 14px;border-top:1px solid var(--border);background:#fafaf8;}
+.poi-leg-l{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-right:4px;}
+.poi-tag{display:flex;align-items:center;gap:5px;font-size:10.5px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:white;}
+.poi-dot{width:8px;height:8px;border-radius:50%;}
+
+/* Maps gallery */
+.maps-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.m-thumb{position:relative;border-radius:7px;overflow:hidden;aspect-ratio:16/10;background:#e8e8e4;}
+.m-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.m-thumb .del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:white;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;}
+.m-thumb:hover .del{opacity:1;}
+.m-lbl{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.55));color:white;font-size:9px;font-weight:600;letter-spacing:.5px;padding:12px 7px 5px;text-transform:uppercase;}
+.maps-empty{text-align:center;padding:16px;color:var(--muted);font-size:12px;border:2px dashed var(--border);border-radius:8px;}
+
+/* ══ MIRATUZONA PANEL ══ */
+.mtz-panel{background:linear-gradient(140deg,#0f2a2b 0%,#1c3d3e 100%);border-radius:10px;padding:20px;margin-bottom:11px;position:relative;overflow:hidden;}
+.mtz-panel::after{content:'';position:absolute;bottom:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(196,163,90,.12),transparent 70%);pointer-events:none;}
+.mtz-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+.mtz-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:4px;}
+.mtz-subtitle{font-size:11px;color:rgba(255,255,255,.4);}
+.mtz-btns{display:flex;gap:7px;align-items:center;flex-shrink:0;}
+
+/* ── 5 KEY METRICS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;}
+.kpi{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:12px 10px;text-align:center;position:relative;overflow:hidden;}
+.kpi.hi{background:rgba(196,163,90,.12);border-color:rgba(196,163,90,.3);}
+.kpi-ico{font-size:20px;margin-bottom:5px;}
+.kpi-lbl{font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px;line-height:1.2;}
+.kpi-val{font-size:15px;font-weight:700;font-family:'Cormorant Garamond',serif;line-height:1;}
+.kpi-sub{font-size:9px;color:rgba(255,255,255,.4);margin-top:3px;}
+.kpi-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.1);margin-top:8px;}
+.kpi-bar-f{height:100%;border-radius:2px;}
+.kv-green .kpi-val{color:#6ee7b7;}.kv-green .kpi-bar-f{background:#6ee7b7;}
+.kv-yellow .kpi-val{color:#fcd34d;}.kv-yellow .kpi-bar-f{background:#fcd34d;}
+.kv-red .kpi-val{color:#fca5a5;}.kv-red .kpi-bar-f{background:#fca5a5;}
+.kv-blue .kpi-val{color:#93c5fd;}.kv-blue .kpi-bar-f{background:#93c5fd;}
+.kv-gold .kpi-val{color:var(--gold);}.kv-gold .kpi-bar-f{background:var(--gold);}
+.kv-white .kpi-val{color:white;}.kv-white .kpi-bar-f{background:rgba(255,255,255,.5);}
+
+/* Secondary metrics row */
+.sec-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.sm{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:9px 12px;}
+.sm-l{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px;}
+.sm-v{font-size:12.5px;color:rgba(255,255,255,.75);font-weight:500;}
+
+/* Highlights */
+.hl-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+.hl{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:4px 10px;font-size:10px;color:rgba(255,255,255,.7);}
+.hd{width:6px;height:6px;border-radius:50%;}
+.hdg{background:#6ee7b7;}.hdy{background:#fcd34d;}.hdr{background:#fca5a5;}
+.mtz-source{font-size:9px;color:rgba(255,255,255,.22);margin-top:12px;}
+.mtz-source a{color:rgba(196,163,90,.5);text-decoration:none;}
+.mtz-empty{text-align:center;padding:18px 0;}
+.mtz-empty p{color:rgba(255,255,255,.32);font-size:12px;margin-top:6px;}
+
+/* ══ PDF UPLOAD ZONE ══ */
+.pdf-zone{background:rgba(108,75,219,.08);border:2px dashed rgba(108,75,219,.35);border-radius:10px;padding:20px;position:relative;cursor:pointer;transition:all .2s;margin-bottom:11px;}
+.pdf-zone:hover,.pdf-zone.drag{background:rgba(108,75,219,.14);border-color:rgba(108,75,219,.6);}
+.pdf-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.pdf-zone-hd{display:flex;align-items:center;gap:12px;}
+.pdf-zone-ico{width:44px;height:44px;background:rgba(108,75,219,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.pdf-zone-t{font-size:13px;font-weight:600;color:white;margin-bottom:2px;}
+.pdf-zone-s{font-size:11px;color:rgba(255,255,255,.45);}
+.pdf-loaded{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(108,75,219,.15);border-radius:8px;margin-top:10px;display:none;}
+.pdf-loaded.show{display:flex;}
+.pdf-name{font-size:12px;color:rgba(255,255,255,.8);font-weight:500;flex:1;}
+.pdf-size{font-size:10.5px;color:rgba(255,255,255,.4);}
+
+/* PDF Analysis results */
+.pdf-result{margin-top:12px;display:none;}
+.pdf-result.show{display:block;}
+
+/* ══ CATASTRO MANUAL PANEL ══ */
+.cat-panel{background:linear-gradient(135deg,#1a0c08,#2d1a10);border-radius:10px;padding:20px;margin-bottom:11px;position:relative;overflow:hidden;}
+.cat-panel::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(192,57,43,.12),transparent 70%);pointer-events:none;}
+.cat-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.cat-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#e67e73;font-weight:600;}
+.cat-btns{display:flex;gap:7px;flex-wrap:wrap;}
+.cat-link-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;text-decoration:none;border:none;transition:all .2s;}
+.cat-link-btn.catastro{background:#C0392B;color:white;}.cat-link-btn.catastro:hover{background:#a93226;}
+.cat-link-btn.idealista{background:#ff6723;color:white;}.cat-link-btn.idealista:hover{background:#e55a1a;}
+.cat-info{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:13px 15px;margin-bottom:12px;}
+.cat-info p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.65;margin-bottom:6px;}
+.cat-info p:last-child{margin-bottom:0;}
+.cat-info strong{color:rgba(255,255,255,.85);}
+.cat-steps{counter-reset:cat-step;}
+.cat-step{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;}
+.cat-step-n{width:20px;height:20px;border-radius:50%;background:rgba(230,126,115,.2);border:1px solid rgba(230,126,115,.4);color:#e67e73;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.cat-step-t{font-size:12px;color:rgba(255,255,255,.65);line-height:1.5;}
+.cat-source{font-size:9px;color:rgba(255,255,255,.22);margin-top:10px;}
+.cat-source a{color:rgba(230,126,115,.45);text-decoration:none;}
+
+/* Photo upload */
+.up-zone{border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:#fafaf8;}
+.up-zone:hover,.up-zone.drag{border-color:var(--teal);background:#f0f7f7;}
+.up-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.up-ico{font-size:22px;margin-bottom:5px;}
+.up-t{font-size:12.5px;font-weight:600;margin-bottom:2px;}
+.up-s{font-size:10.5px;color:var(--muted);}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.pt2{position:relative;border-radius:6px;overflow:hidden;aspect-ratio:4/3;background:#f0f0ee;}
+.pt2 img{width:100%;height:100%;object-fit:cover;display:block;}
+.pt2 .del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:white;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;}
+.pt2:hover .del{opacity:1;}
+.pcount{font-size:10.5px;color:var(--muted);margin-top:5px;}
+.cat-lbl2{font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+.tag{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;}
+.te{background:#fef3c7;color:#92400e;}
+.ti{background:#d1fae5;color:#065f46;}
+.tp{background:#ede9fe;color:#5b21b6;}
+
+.step-section{display:none;}.step-section.active{display:block;}
+
+/* ══ DOSSIER ══ */
+#dossier-wrap{display:none;background:var(--bg);}
+#dossier-wrap.show{display:block;}
+#dossier-bar{background:var(--teal-dk);padding:11px 22px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;}
+#dossier-bar span{color:white;font-size:13px;font-weight:500;}
+#dossier-pages{padding:24px 0;}
+.d-page{width:794px;min-height:1122px;margin:0 auto 20px;background:white;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.1);}
+.vp-hd{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 22px 9px;border-bottom:1px solid #eee;}
+.vp-contact{text-align:right;font-size:9.5px;color:var(--muted);line-height:1.85;}
+.d-sec-bar{background:var(--teal);color:white;padding:5px 22px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;display:block;}
+.d-portada-bar{background:var(--teal);color:white;text-align:center;padding:9px 22px;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;letter-spacing:1px;}
+.d-cover-img{width:100%;height:300px;object-fit:cover;display:block;}
+.d-cover-ph{width:100%;height:300px;background:#e8e8e4;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;}
+.d-specs-body{padding:14px 22px;}
+.d-specs-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px;}
+.d-specs-desc{font-size:11.5px;line-height:1.85;color:var(--text);text-align:justify;}
+.d-tbl{width:100%;border-collapse:collapse;}
+.d-tbl .dth td{background:var(--teal);color:white;font-weight:700;font-size:9.5px;letter-spacing:1px;padding:6px 11px;text-transform:uppercase;}
+.d-tbl tr{border-bottom:1px solid #ebebeb;}
+.d-tbl td{padding:6px 11px;font-size:11px;}
+.d-tbl td:first-child{color:var(--muted);width:52%;}
+.d-tbl td:last-child{font-weight:600;}
+.d-tbl .dtot td{background:#f5f5f2;font-weight:700;}
+.d-photos-body{padding:12px 22px;}
+.d-2col{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:10px;}
+.d-photo{width:100%;height:215px;object-fit:cover;display:block;border:1px solid #eee;}
+.d-map-body{padding:12px 22px;}
+.d-map-img{width:100%;max-height:420px;object-fit:cover;display:block;margin-top:10px;border:1px solid #eee;}
+.d-plan-img{width:100%;object-fit:contain;display:block;margin-top:10px;}
+.d-cond-body{padding:26px 30px;}
+.d-cond-title{font-family:'Cormorant Garamond',serif;font-size:25px;color:var(--gold);font-weight:500;margin:8px 0 20px;}
+.d-cond-list{list-style:none;}
+.d-cond-list li{padding:5px 0 5px 18px;font-size:12px;position:relative;line-height:1.6;}
+.d-cond-list li::before{content:'▪';position:absolute;left:0;color:var(--teal);}
+.d-honorarios{margin-top:38px;font-size:11.5px;color:var(--muted);line-height:1.7;}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  body{background:white;}
+  #app,#dossier-bar{display:none!important;}
+  #dossier-wrap{display:block!important;background:white;}
+  #dossier-pages{padding:0;}
+  .d-page{width:100%;margin:0;box-shadow:none;min-height:0;page-break-after:always;}
+  .d-page:last-child{page-break-after:auto;}
+}
+@page{size:A4;margin:0;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ SIDEBAR ══ -->
+<div id="sidebar">
+  <div class="sb-logo">
+    <svg width="28" height="26" viewBox="0 0 28 26" fill="none" style="margin-bottom:6px">
+      <path d="M2,25 L2,11 L14,2 L26,11 L26,25" stroke="rgba(255,255,255,.6)" stroke-width="1.3" fill="none"/>
+      <rect x="10" y="16" width="8" height="9" stroke="rgba(255,255,255,.6)" stroke-width="1.2" fill="none"/>
+      <path d="M0,12 L14,1 L28,12" stroke="rgba(255,255,255,.25)" stroke-width="1" fill="none"/>
+    </svg>
+    <div class="sb-name">VISION</div>
+    <div class="sb-sub">·PROPERTY·</div>
+  </div>
+  <div class="sb-sec">Nuevo Dossier</div>
+  <div class="sb-item active" id="nav-1" onclick="goStep(1)"><div class="sb-n">1</div>Búsqueda de dirección</div>
+  <div class="sb-item" id="nav-2" onclick="goStep(2)"><div class="sb-n">2</div>Mapa y análisis zona</div>
+  <div class="sb-item" id="nav-3" onclick="goStep(3)"><div class="sb-n">3</div>Especificaciones</div>
+  <div class="sb-item" id="nav-4" onclick="goStep(4)"><div class="sb-n">4</div>Fotos del local</div>
+  <div class="sb-item" id="nav-5" onclick="goStep(5)"><div class="sb-n">5</div>Condiciones</div>
+  <div class="sb-foot">
+    <div class="sb-bar"><div class="sb-bar-f" id="progBar" style="width:20%"></div></div>
+    <div class="sb-bar-l" id="progLbl">Paso 1 de 5</div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div id="main">
+
+<!-- ════ STEP 1 ════ -->
+<div class="step-section active" id="step-1">
+  <div class="pt"><h2>Búsqueda de dirección</h2><p>Escribe la dirección — barrio, ciudad y CP se rellenan solos</p></div>
+  <div class="card">
+    <div class="card-t">Autocompletado con OpenStreetMap</div>
+    <div class="fg fg1" style="margin-bottom:6px">
+      <div class="grp ac-wrap">
+        <label>Dirección del local</label>
+        <input id="f_search" type="text" placeholder="Escribe la dirección... ej: Joan Güell 165, Barcelona" autocomplete="off" oninput="onSearchInput(this.value)" onkeydown="onSearchKey(event)">
+        <div class="ac-drop" id="ac-drop"></div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">📍 Selecciona el resultado — los datos se rellenan automáticamente</p>
+    <div class="fg fg2">
+      <div class="grp"><label>Dirección (calle + número)</label>
+        <div style="position:relative"><input id="f_dir" type="text" placeholder="Joan Güell 165" readonly style="background:#f8f8f6"><span class="auto-tag" id="tag-dir">✓ auto</span></div>
+      </div>
+      <div class="grp"><label>Barrio / Zona</label>
+        <div style="position:relative"><input id="f_barrio" type="text" placeholder="Les Corts"><span class="auto-tag" id="tag-barrio">✓ auto</span></div>
+      </div>
+    </div>
+    <div class="fg fg3">
+      <div class="grp"><label>Ciudad</label>
+        <div style="position:relative"><input id="f_city" type="text" placeholder="Barcelona"><span class="auto-tag" id="tag-city">✓ auto</span></div>
+      </div>
+      <div class="grp"><label>Código postal</label>
+        <div style="position:relative"><input id="f_cp" type="text" placeholder="08028"><span class="auto-tag" id="tag-cp">✓ auto</span></div>
+      </div>
+      <div class="grp"><label>Tipo de operación</label>
+        <select id="f_op"><option>Alquiler</option><option>Venta</option><option>Alquiler con opción a compra</option></select>
+      </div>
+    </div>
+    <div class="fg fg2">
+      <div class="grp"><label>Cliente / Propietario</label><input id="f_cliente" type="text" placeholder="Nombre del cliente"></div>
+      <div class="grp"><label>Coordenadas</label><input id="f_coords" type="text" placeholder="—" readonly style="background:#f8f8f6;font-size:11.5px;color:var(--muted)"></div>
+    </div>
+  </div>
+  <div class="sec-acts">
+    <button class="btn btn-teal" id="btnGo1" onclick="goToMap()" disabled>Siguiente → Mapa y análisis</button>
+  </div>
+</div>
+
+<!-- ════ STEP 2 ════ -->
+<div class="step-section" id="step-2">
+  <div class="pt"><h2>Mapa y análisis de zona</h2><p>Mapa interactivo · Informe MiraTuZona · Consulta de Catastro</p></div>
+
+  <!-- MAP -->
+  <div class="map-wrap">
+    <div class="map-tb">
+      <span class="map-tb-t">🗺️</span>
+      <button class="zb on" id="zb-st" onclick="setZoom(17,'st')">Calle</button>
+      <button class="zb" id="zb-ba" onclick="setZoom(14,'ba')">Barrio</button>
+      <button class="zb" id="zb-ci" onclick="setZoom(12,'ci')">Ciudad</button>
+      <div class="sep"></div>
+      <button class="zb" id="zb-sat" onclick="toggleSat()">🛰️ Satélite</button>
+      <div class="sep"></div>
+      <button class="cap-btn" id="captureBtn" onclick="captureMap()" disabled>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="3" width="10" height="8" rx="1.5" stroke="white" stroke-width="1.2"/><circle cx="6" cy="7" r="1.8" stroke="white" stroke-width="1.2"/><path d="M4,3 L4.5,1.5 L7.5,1.5 L8,3" stroke="white" stroke-width="1.2"/></svg>
+        Capturar vista
+      </button>
+      <span class="map-status" id="mapSt">Esperando dirección...</span>
+    </div>
+    <div id="the-map"></div>
+    <div class="poi-leg" id="poiLeg" style="display:none">
+      <span class="poi-leg-l">POIs:</span>
+      <span class="poi-tag"><span class="poi-dot" style="background:#e53935"></span>Local</span>
+      <span class="poi-tag poi-metro" style="display:none"><span class="poi-dot" style="background:#1565C0"></span>Metro</span>
+      <span class="poi-tag poi-bus" style="display:none"><span class="poi-dot" style="background:#EF6C00"></span>Bus</span>
+      <span class="poi-tag poi-super" style="display:none"><span class="poi-dot" style="background:#2E7D32"></span>Supermercado</span>
+      <span class="poi-tag poi-parking" style="display:none"><span class="poi-dot" style="background:#0277BD"></span>Parking</span>
+      <span class="poi-tag poi-park" style="display:none"><span class="poi-dot" style="background:#388E3C"></span>Parque</span>
+      <span class="poi-tag poi-pharma" style="display:none"><span class="poi-dot" style="background:#E65100"></span>Farmacia</span>
+    </div>
+  </div>
+
+  <!-- CAPTURES -->
+  <div class="card">
+    <div class="card-t">Capturas del mapa <span id="mapsCount" style="color:var(--muted);font-weight:400;font-size:10px;text-transform:none;letter-spacing:0"></span></div>
+    <div id="mapsGallery"><div class="maps-empty">📸 Captura vistas: Calle (con POIs), Barrio y Ciudad, también en modo Satélite</div></div>
+    <div class="load-row" id="captureLoad" style="margin-top:8px"><div class="spin"></div><span>Procesando captura<span class="dots"></span></span></div>
+  </div>
+
+  <!-- MIRATUZONA PANEL -->
+  <div class="mtz-panel">
+    <div class="mtz-hd">
+      <div>
+        <div class="mtz-title">📊 Análisis de Zona · MiraTuZona</div>
+        <div class="mtz-subtitle">Sube el informe PDF o analiza con IA</div>
+      </div>
+      <div class="mtz-btns">
+        <a id="mtzLink" href="https://miratuzona.com/buscar" target="_blank" class="btn btn-mtz btn-sm">Ver MiraTuZona ↗</a>
+        <button class="btn btn-teal btn-sm" id="btnAI" onclick="runAIAnalysis()">✦ Analizar con IA</button>
+      </div>
+    </div>
+
+    <!-- PDF UPLOAD (inside MTZ panel) -->
+    <div class="pdf-zone" id="pdfZone" ondrop="dropPDF(event)" ondragover="dragOn(event)" ondragleave="dragOff(event)">
+      <input type="file" id="pdfInput" accept=".pdf,application/pdf" onchange="loadPDF(this)" onclick="event.stopPropagation()">
+      <div class="pdf-zone-hd">
+        <div class="pdf-zone-ico">📄</div>
+        <div>
+          <div class="pdf-zone-t">Subir informe PDF de MiraTuZona</div>
+          <div class="pdf-zone-s">Genera el informe en miratuzona.com, descárgalo y súbelo aquí — la IA lo analiza automáticamente</div>
+        </div>
+      </div>
+      <div class="pdf-loaded" id="pdfLoaded">
+        <span style="font-size:18px">📄</span>
+        <span class="pdf-name" id="pdfName">—</span>
+        <span class="pdf-size" id="pdfSize"></span>
+        <button onclick="clearPDF(event)" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:16px">×</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-mtz btn-sm" id="btnPDFAnalyze" onclick="analyzePDF()" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6,1 L7.5,4.5 L11,4.5 L8.5,7 L9.5,11 L6,8.5 L2.5,11 L3.5,7 L1,4.5 L4.5,4.5Z" stroke="white" stroke-width="1" fill="none"/></svg>
+        Analizar PDF con IA
+      </button>
+      <div class="load-row" id="pdfLoad"><div class="spin" style="border-top-color:var(--gold);border-color:rgba(255,255,255,.2)"></div><span style="color:rgba(255,255,255,.5)">Analizando informe MiraTuZona<span class="dots"></span></span></div>
+      <div class="load-row" id="aiLoad"><div class="spin" style="border-top-color:var(--gold);border-color:rgba(255,255,255,.2)"></div><span style="color:rgba(255,255,255,.5)">Investigando la zona<span class="dots"></span></span></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="mtzContent">
+      <div class="mtz-empty"><div style="font-size:28px">🔍</div><p>Sube el PDF de MiraTuZona o pulsa "Analizar con IA"</p></div>
+    </div>
+    <div class="mtz-source" id="mtzSrc" style="display:none">
+      Fuente: <a id="mtzSrcLink" href="https://miratuzona.com" target="_blank">MiraTuZona.com</a> · Datos INE a nivel de sección censal
+    </div>
+  </div>
+
+  <!-- CATASTRO MANUAL PANEL -->
+  <div class="cat-panel">
+    <div class="cat-hd">
+      <div>
+        <div class="cat-title">🏛️ Catastro e Idealista — Consulta de datos del inmueble</div>
+      </div>
+      <div class="cat-btns" id="catBtns">
+        <a id="catBtn" href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S" target="_blank" class="cat-link-btn catastro">
+          🏛️ Abrir Catastro
+        </a>
+        <a id="idealistaBtn" href="https://www.idealista.com/maps/barcelona-provincia/barcelona/" target="_blank" class="cat-link-btn idealista">
+          🏠 Abrir Idealista Maps
+        </a>
+      </div>
+    </div>
+    <div class="cat-info">
+      <div class="cat-step"><div class="cat-step-n">1</div><div class="cat-step-t">Pulsa <strong>Abrir Catastro</strong> → en el mapa busca la dirección del local → haz clic en la parcela → apunta los datos que aparecen (ref. catastral, superficie, año, uso)</div></div>
+      <div class="cat-step"><div class="cat-step-n">2</div><div class="cat-step-t">Alternativamente usa <strong>Idealista Maps</strong> → busca la dirección → consulta el precio por m² de la zona y características del edificio</div></div>
+      <div class="cat-step"><div class="cat-step-n">3</div><div class="cat-step-t">Introduce los datos obtenidos manualmente en los campos del <strong>Paso 3 · Especificaciones</strong></div></div>
+    </div>
+    <div class="cat-source">Sede Electrónica del Catastro: <a href="https://www.sedecatastro.gob.es/" target="_blank">sedecatastro.gob.es</a></div>
+  </div>
+
+  <!-- DESCRIPTION OUTPUT -->
+  <div class="card">
+    <div class="card-t">Descripción del local <span style="color:var(--muted);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(editable)</span></div>
+    <textarea id="f_desc" rows="6" placeholder="Se genera automáticamente al analizar el PDF o con IA..."></textarea>
+  </div>
+  <div class="card">
+    <div class="card-t">Puntos del entorno <span style="color:var(--muted);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(editable)</span></div>
+    <textarea id="f_entorno" rows="4" placeholder="Transporte, supermercados, tránsito peatonal, densidad comercial..."></textarea>
+  </div>
+
+  <div class="sec-acts">
+    <button class="btn btn-out" onclick="goStep(1)">← Atrás</button>
+    <button class="btn btn-teal" onclick="goStep(3)">Siguiente → Especificaciones</button>
+  </div>
+</div>
+
+<!-- ════ STEP 3 ════ -->
+<div class="step-section" id="step-3">
+  <div class="pt"><h2>Especificaciones técnicas</h2><p>Introduce los datos del Catastro, Idealista o los planos del local</p></div>
+  <div class="card">
+    <div class="card-t">Superficies</div>
+    <div class="fg fg4">
+      <div class="grp"><label>Superficie construida</label><input id="f_sup" type="text" placeholder="610 m²"></div>
+      <div class="grp"><label>Planta Baja (m²)</label><input id="f_pb" type="text" placeholder="202 m²"></div>
+      <div class="grp"><label>Sótano / Altillo</label><input id="f_sot" type="text" placeholder="408 m²"></div>
+      <div class="grp"><label>Total (m²)</label><input id="f_tot" type="text" placeholder="610 m²"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-t">Características del inmueble</div>
+    <div class="fg fg3">
+      <div class="grp"><label>Altura libre</label><input id="f_alt" type="text" placeholder="> 3 metros"></div>
+      <div class="grp"><label>Fachada comercial</label><input id="f_fach" type="text" placeholder="7,15 m"></div>
+      <div class="grp"><label>Tipología edificio</label><input id="f_tipo" type="text" placeholder="Residencial"></div>
+    </div>
+    <div class="fg fg4" style="margin-top:9px">
+      <div class="grp"><label>Año construcción</label><input id="f_anyo" type="text" placeholder="1975"></div>
+      <div class="grp"><label>Acceso / Comunicación</label><input id="f_acceso" type="text" placeholder="Escaleras + montacargas"></div>
+      <div class="grp"><label>Ref. catastral</label><input id="f_catref" type="text" placeholder="0000000BC0000A" style="font-size:11.5px"></div>
+      <div class="grp"><label>Estado</label>
+        <select id="f_estado"><option>En estudio</option><option>Diáfano</option><option>Con instalaciones</option><option>Reformado</option><option>A reformar</option></select>
+      </div>
+    </div>
+  </div>
+  <div class="sec-acts">
+    <button class="btn btn-out" onclick="goStep(2)">← Atrás</button>
+    <button class="btn btn-teal" onclick="goStep(4)">Siguiente → Fotos</button>
+  </div>
+</div>
+
+<!-- ════ STEP 4 ════ -->
+<div class="step-section" id="step-4">
+  <div class="pt"><h2>Fotos del local</h2><p>Exterior, interior y planos — los mapas ya están capturados</p></div>
+  <div class="card">
+    <div class="cat-lbl2">🏪 Exterior <span class="tag te">Fachada · Calle</span></div>
+    <div class="up-zone" ondrop="dropF(event,'ext')" ondragover="dragOn(event)" ondragleave="dragOff(event)" onclick="document.getElementById('up-ext').click()">
+      <input type="file" id="up-ext" accept="image/*" multiple onchange="handleUp(this,'ext')" onclick="event.stopPropagation()">
+      <div class="up-ico">🏪</div><div class="up-t">Subir fotos del exterior</div><div class="up-s">Fachada, calle, entorno</div>
+    </div>
+    <div class="photo-grid" id="grid-ext"></div><div class="pcount" id="count-ext"></div>
+  </div>
+  <div class="card">
+    <div class="cat-lbl2">🏠 Interior <span class="tag ti">Espacios interiores</span></div>
+    <div class="up-zone" ondrop="dropF(event,'int')" ondragover="dragOn(event)" ondragleave="dragOff(event)" onclick="document.getElementById('up-int').click()">
+      <input type="file" id="up-int" accept="image/*" multiple onchange="handleUp(this,'int')" onclick="event.stopPropagation()">
+      <div class="up-ico">🏠</div><div class="up-t">Subir fotos del interior</div><div class="up-s">Planta baja, sótano, instalaciones</div>
+    </div>
+    <div class="photo-grid" id="grid-int"></div><div class="pcount" id="count-int"></div>
+  </div>
+  <div class="card">
+    <div class="cat-lbl2">📐 Planos <span class="tag tp">Distribución</span></div>
+    <div class="up-zone" ondrop="dropF(event,'plan')" ondragover="dragOn(event)" ondragleave="dragOff(event)" onclick="document.getElementById('up-plan').click()">
+      <input type="file" id="up-plan" accept="image/*" multiple onchange="handleUp(this,'plan')" onclick="event.stopPropagation()">
+      <div class="up-ico">📐</div><div class="up-t">Subir planos de distribución</div><div class="up-s">Planta baja, sótano, catastral</div>
+    </div>
+    <div class="photo-grid" id="grid-plan"></div><div class="pcount" id="count-plan"></div>
+  </div>
+  <div class="sec-acts">
+    <button class="btn btn-out" onclick="goStep(3)">← Atrás</button>
+    <button class="btn btn-teal" onclick="goStep(5)">Siguiente → Condiciones</button>
+  </div>
+</div>
+
+<!-- ════ STEP 5 ════ -->
+<div class="step-section" id="step-5">
+  <div class="pt"><h2>Condiciones económicas</h2><p>Última página del dossier</p></div>
+  <div class="card">
+    <div class="card-t">Precio y condiciones</div>
+    <div class="fg fg2">
+      <div class="grp"><label>Renta mensual</label><input id="f_renta" type="text" placeholder="3.500 €"></div>
+      <div class="grp"><label>Honorarios VP</label><input id="f_honor" type="text" placeholder="10% de una anualidad de renta"></div>
+    </div>
+    <div class="fg fg1" style="margin-top:9px">
+      <div class="grp"><label>Otras condiciones</label><textarea id="f_cond" rows="4" placeholder="Garantías, duración, carencia, etc., del contrato a determinar entre las partes."></textarea></div>
+    </div>
+  </div>
+  <div class="card" style="background:linear-gradient(135deg,#f0f7f0,#e8f4e8);border-color:#b8d8b8;">
+    <div class="card-t" style="color:#2e7d32">✓ Todo listo</div>
+    <p style="font-size:13px;color:#4a6a4a;line-height:1.65;margin-bottom:13px">El dossier incluirá: portada, especificaciones, mapas capturados, documentación gráfica, planos y condiciones económicas.</p>
+    <button class="btn btn-gold" style="font-size:14px;padding:12px 26px" onclick="genDossier()">✦ Generar Dossier PDF</button>
+  </div>
+  <div class="sec-acts"><button class="btn btn-out" onclick="goStep(4)">← Atrás</button></div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══ DOSSIER ══ -->
+<div id="dossier-wrap">
+  <div id="dossier-bar">
+    <span id="dossier-bar-t">✓ Dossier generado</span>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-out btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="backToForm()">← Editar</button>
+      <button class="btn btn-gold btn-sm" onclick="window.print()">⬇ Guardar como PDF</button>
+    </div>
+  </div>
+  <div id="dossier-pages"></div>
+</div>
+
+<script>
+// ══ STATE ══
+const photos={maps:[],ext:[],int:[],plan:[]};
+let lmap=null,streetL=null,satL=null,satOn=false;
+let coords=null,mainM=null,poiMs=[];
+let acTimer=null,acRes=[],acIdx=-1;
+let pdfB64=null,pdfFileName='';
+
+// ══ NAV ══
+function goStep(n){
+  document.querySelectorAll('.step-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-'+n).classList.add('active');
+  document.querySelectorAll('.sb-item').forEach((el,i)=>{
+    el.className='sb-item';
+    const num=el.querySelector('.sb-n');
+    if(i===n-1){el.classList.add('active');num.textContent=i+1;}
+    else if(i<n-1){el.classList.add('done');num.textContent='✓';}
+    else num.textContent=i+1;
+  });
+  document.getElementById('progBar').style.width=(n/5*100)+'%';
+  document.getElementById('progLbl').textContent=`Paso ${n} de 5`;
+  window.scrollTo(0,0);
+}
+
+// ══ AUTOCOMPLETE ══
+function onSearchInput(v){
+  clearTimeout(acTimer);acIdx=-1;
+  if(v.length<4){closeAC();return;}
+  acTimer=setTimeout(()=>fetchAC(v),380);
+}
+async function fetchAC(q){
+  const drop=document.getElementById('ac-drop');
+  drop.innerHTML='<div class="ac-loading"><div class="spin"></div>Buscando...</div>';
+  drop.classList.add('open');
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&countrycodes=es`,
+      {headers:{'Accept-Language':'es','User-Agent':'VisionPropertyDossier/1.0'}});
+    acRes=await r.json();
+    if(!acRes.length){drop.innerHTML='<div class="ac-empty">Sin resultados. Intenta con más detalle.</div>';return;}
+    drop.innerHTML=acRes.map((it,i)=>{
+      const a=it.address||{};
+      const main=[a.road,a.house_number].filter(Boolean).join(' ')||it.display_name.split(',')[0];
+      const sub=[a.suburb||a.neighbourhood||a.city_district,a.city||a.town||a.municipality,a.postcode].filter(Boolean).join(', ');
+      return`<div class="ac-item" onclick="selectAC(${i})"><strong>${main}</strong><br><small>${sub}</small></div>`;
+    }).join('');
+  }catch(e){drop.innerHTML='<div class="ac-empty">Error de conexión.</div>';}
+}
+function selectAC(i){
+  const it=acRes[i];if(!it)return;
+  const a=it.address||{};
+  coords={lat:+it.lat,lon:+it.lon};
+  const dir=[a.road,a.house_number].filter(Boolean).join(' ')||it.display_name.split(',')[0];
+  const barrio=a.suburb||a.neighbourhood||a.city_district||a.quarter||'';
+  const city=a.city||a.town||a.municipality||'Barcelona';
+  const cp=a.postcode||'';
+  setF('f_dir',dir,'dir');setF('f_barrio',barrio,'barrio');setF('f_city',city,'city');setF('f_cp',cp,'cp');
+  document.getElementById('f_coords').value=`${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`;
+  document.getElementById('f_search').value=dir+', '+city;
+  // Update links
+  const q=encodeURIComponent(dir+', '+city);
+  document.getElementById('mtzLink').href=`https://miratuzona.com/buscar?q=${q}`;
+  document.getElementById('mtzSrcLink').href=`https://miratuzona.com/buscar?q=${q}`;
+  // Catastro direct link — address in URL params
+  const cNombre=encodeURIComponent((a.road||'').toUpperCase());
+  const cNum=a.house_number||'';
+  const cMuni=encodeURIComponent((city||'BARCELONA').toUpperCase());
+  document.getElementById('catBtn').href=`https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S&Provincia=${cMuni}&Municipio=${cMuni}&TipoVia=CL&NombreVia=${cNombre}&Numero=${cNum}`;
+  document.getElementById('idealistaBtn').href=`https://www.idealista.com/maps/${encodeURIComponent(city.toLowerCase().replace(/ /g,'-'))}-provincia/${encodeURIComponent(city.toLowerCase().replace(/ /g,'-'))}/`;
+  closeAC();
+  document.getElementById('btnGo1').disabled=false;
+}
+function setF(id,val,badge){
+  const el=document.getElementById(id);el.value=val;
+  if(val){el.classList.add('field-ok');const b=document.getElementById('tag-'+badge);if(b)b.classList.add('show');}
+}
+function closeAC(){document.getElementById('ac-drop').classList.remove('open');}
+function onSearchKey(e){
+  const items=document.getElementById('ac-drop').querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach((el,i)=>el.style.background=i===acIdx?'#f0f7f7':'');}
+  else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach((el,i)=>el.style.background=i===acIdx?'#f0f7f7':'');}
+  else if(e.key==='Enter'&&acIdx>=0)selectAC(acIdx);
+  else if(e.key==='Escape')closeAC();
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.ac-wrap'))closeAC();});
+
+// ══ MAP ══
+async function goToMap(){
+  if(!coords){alert('Selecciona una dirección primero.');return;}
+  goStep(2);
+  setTimeout(initMap,200);
+}
+function initMap(){
+  if(!lmap){
+    lmap=L.map('the-map',{zoomControl:true});
+    streetL=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19,crossOrigin:'anonymous'});
+    satL=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19,crossOrigin:'anonymous'});
+    streetL.addTo(lmap);
+  }
+  lmap.setView([coords.lat,coords.lon],17);
+  if(mainM)lmap.removeLayer(mainM);
+  mainM=L.circleMarker([coords.lat,coords.lon],{radius:11,fillColor:'#e53935',color:'white',weight:2.5,fillOpacity:1})
+    .addTo(lmap).bindPopup(`<b>${document.getElementById('f_dir').value}</b>`).openPopup();
+  document.getElementById('captureBtn').disabled=false;
+  document.getElementById('mapSt').textContent=`📍 ${document.getElementById('f_dir').value}`;
+  document.getElementById('poiLeg').style.display='flex';
+  setTimeout(()=>{lmap.invalidateSize();loadPOIs(coords.lat,coords.lon);},300);
+}
+
+function toggleSat(){
+  satOn=!satOn;const btn=document.getElementById('zb-sat');
+  if(satOn){lmap.removeLayer(streetL);satL.addTo(lmap);btn.classList.add('on');}
+  else{lmap.removeLayer(satL);streetL.addTo(lmap);btn.classList.remove('on');}
+}
+function setZoom(z,id){
+  document.querySelectorAll('.zb:not(#zb-sat)').forEach(b=>b.classList.remove('on'));
+  document.getElementById('zb-'+id).classList.add('on');
+  if(lmap&&coords)lmap.setView([coords.lat,coords.lon],z);
+}
+
+const POI_COLORS={metro:'#1565C0',bus:'#EF6C00',super:'#2E7D32',parking:'#0277BD',hospital:'#AD1457',park:'#388E3C',pharma:'#E65100'};
+async function loadPOIs(lat,lon){
+  document.getElementById('mapSt').textContent='🔍 Detectando POIs...';
+  const q=`[out:json][timeout:15];(
+    node["station"="subway"](around:900,${lat},${lon});
+    node["railway"="subway_entrance"](around:900,${lat},${lon});
+    node["amenity"="supermarket"](around:500,${lat},${lon});
+    node["shop"="supermarket"](around:500,${lat},${lon});
+    node["amenity"="parking"](around:400,${lat},${lon});
+    node["amenity"="hospital"](around:1500,${lat},${lon});
+    node["amenity"="pharmacy"](around:400,${lat},${lon});
+    node["leisure"="park"](around:700,${lat},${lon});
+    node["highway"="bus_stop"](around:250,${lat},${lon});
+  );out body 80;`;
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+    const data=await r.json();
+    poiMs.forEach(m=>lmap.removeLayer(m));poiMs=[];
+    const seen={};const lim={metro:4,bus:5,super:5,parking:4,hospital:3,park:4,pharma:5};
+    data.elements.forEach(el=>{
+      if(!el.lat||!el.lon)return;
+      const t=el.tags||{};let type=null;
+      if(t.station==='subway'||t.railway==='subway_entrance')type='metro';
+      else if(t.highway==='bus_stop')type='bus';
+      else if(t.amenity==='supermarket'||t.shop==='supermarket')type='super';
+      else if(t.amenity==='parking')type='parking';
+      else if(t.amenity==='hospital')type='hospital';
+      else if(t.leisure==='park')type='park';
+      else if(t.amenity==='pharmacy')type='pharma';
+      if(!type)return;
+      seen[type]=(seen[type]||0)+1;
+      if(seen[type]>(lim[type]||3))return;
+      const m=L.circleMarker([el.lat,el.lon],{radius:6,fillColor:POI_COLORS[type],color:'white',weight:1.5,fillOpacity:.9}).addTo(lmap);
+      if(t.name)m.bindTooltip(t.name,{permanent:false,direction:'top'});
+      poiMs.push(m);
+      document.querySelectorAll('.poi-'+type).forEach(el2=>el2.style.display='flex');
+    });
+    document.getElementById('mapSt').textContent=`✓ ${poiMs.length} POIs detectados`;
+  }catch(e){document.getElementById('mapSt').textContent='✓ Mapa listo';}
+}
+
+async function captureMap(){
+  if(!lmap)return;
+  document.getElementById('captureBtn').disabled=true;
+  document.getElementById('captureLoad').classList.add('on');
+  await new Promise(r=>setTimeout(r,600));
+  const activeZoom=document.querySelector('.zb.on:not(#zb-sat)')?.id?.replace('zb-','')||'st';
+  const zLabels={st:'Vista calle',ba:'Vista barrio',ci:'Vista ciudad'};
+  const label=(satOn?'🛰️ Satélite — ':'')+zLabels[activeZoom];
+  try{
+    const canvas=await html2canvas(document.getElementById('the-map'),{useCORS:true,allowTaint:false,scale:1.5,logging:false,backgroundColor:'#f0efeb'});
+    photos.maps.push({src:canvas.toDataURL('image/jpeg',.92),label});
+    renderMapsGallery();
+  }catch(e){
+    if(coords){
+      const z={st:17,ba:14,ci:12}[activeZoom]||15;
+      const url=`https://staticmap.openstreetmap.de/staticmap.php?center=${coords.lat},${coords.lon}&zoom=${z}&size=700x440&markers=${coords.lat},${coords.lon},red-pushpin`;
+      try{const res=await fetch(url);const blob=await res.blob();const rd=new FileReader();rd.onload=()=>{photos.maps.push({src:rd.result,label});renderMapsGallery();};rd.readAsDataURL(blob);}
+      catch(e2){photos.maps.push({src:url,label});renderMapsGallery();}
+    }
+  }
+  document.getElementById('captureBtn').disabled=false;
+  document.getElementById('captureLoad').classList.remove('on');
+}
+function renderMapsGallery(){
+  const n=photos.maps.length;
+  document.getElementById('mapsCount').textContent=n?`(${n} captura${n>1?'s':''})`:'' ;
+  if(!n){document.getElementById('mapsGallery').innerHTML='<div class="maps-empty">📸 Captura: Calle (con POIs), Barrio y Ciudad — también en modo Satélite</div>';return;}
+  document.getElementById('mapsGallery').innerHTML=`<div class="maps-gallery">${photos.maps.map((m,i)=>`<div class="m-thumb"><img src="${m.src}"><button class="del" onclick="delMap(${i})">×</button><div class="m-lbl">${m.label}</div></div>`).join('')}</div>`;
+}
+function delMap(i){photos.maps.splice(i,1);renderMapsGallery();}
+
+// ══ PDF HANDLING ══
+function dragOn(e){e.preventDefault();e.currentTarget.classList.add('drag');}
+function dragOff(e){e.currentTarget.classList.remove('drag');}
+function dropPDF(e){e.preventDefault();e.currentTarget.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')processPDF(f);}
+function loadPDF(inp){const f=inp.files[0];if(f)processPDF(f);inp.value='';}
+function processPDF(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    pdfB64=e.target.result.split(',')[1];
+    pdfFileName=file.name;
+    document.getElementById('pdfName').textContent=file.name;
+    document.getElementById('pdfSize').textContent=`${(file.size/1024).toFixed(0)} KB`;
+    document.getElementById('pdfLoaded').classList.add('show');
+    document.getElementById('btnPDFAnalyze').style.display='inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+function clearPDF(e){e.stopPropagation();pdfB64=null;pdfFileName='';document.getElementById('pdfLoaded').classList.remove('show');document.getElementById('btnPDFAnalyze').style.display='none';document.getElementById('pdfInput').value='';}
+
+// ══ PDF ANALYSIS ══
+async function analyzePDF(){
+  if(!pdfB64){alert('No hay PDF cargado.');return;}
+  document.getElementById('btnPDFAnalyze').disabled=true;
+  document.getElementById('pdfLoad').classList.add('on');
+  document.getElementById('mtzContent').innerHTML='';
+
+  const dir=document.getElementById('f_dir').value;
+  const city=document.getElementById('f_city').value||'Barcelona';
+
+  const prompt=`Eres un analista inmobiliario especializado en Barcelona. Analiza este informe PDF de MiraTuZona para el local en: ${dir}, ${city}.
+
+EXTRAE Y PRESENTA estos indicadores CLAVE con prioridad máxima:
+
+1. 🚶 PEATONES: Tránsito peatonal, afluencia de personas, flujo comercial de la zona
+2. 🚇 METRO: Líneas de metro cercanas, nombres de estaciones, distancia en metros/minutos
+3. 🛒 SUPERMERCADOS: Número de supermercados cercanos, nombres si aparecen, densidad comercial
+4. 👥 DENSIDAD: Densidad de población (hab/km²), número de habitantes del barrio/sección
+5. 💰 RENTA PER CÁPITA: Renta media por hogar o per cápita familiar (€/año)
+
+DATOS SECUNDARIOS: seguridad, ruido, acceso sanitario, zonas verdes, transporte bus, edad media, % extranjeros
+
+Genera también:
+- Descripción profesional del local (3 párrafos, ~160 palabras, tercera persona)
+- 4-5 puntos destacados del entorno
+
+Responde SOLO con JSON (sin markdown):
+{"peatones":{"nivel":"Alto/Medio/Bajo","descripcion":""},"metro":{"lineas":"","estacion_mas_cercana":"","distancia":""},"supermercados":{"cantidad":0,"descripcion":""},"densidad":{"valor":"","hab_km2":0},"renta_per_capita":{"valor":"","tipo":"por hogar/per cápita"},"seguridad":7.0,"ruido":3.5,"salud":8.0,"zonas_verdes":"","transporte_bus":"","edad_media":42,"extranjeros":"20%","zona":"","tipo_zona":"","highlights":[{"icon":"","text":"","c":"g"}],"descripcion":"","entorno":""}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1400,
+        messages:[{role:'user',content:[
+          {type:'document',source:{type:'base64',media_type:'application/pdf',data:pdfB64}},
+          {type:'text',text:prompt}
+        ]}]
+      })});
+    const data=await res.json();
+    const raw=data.content?.find(b=>b.type==='text')?.text||'';
+    const m=raw.match(/\{[\s\S]*\}/);
+    if(!m)throw new Error('no json');
+    const d=JSON.parse(m[0]);
+    renderMTZResults(d);
+    if(d.descripcion)document.getElementById('f_desc').value=d.descripcion;
+    if(d.entorno)document.getElementById('f_entorno').value=d.entorno.replace(/\\n/g,'\n');
+    document.getElementById('mtzSrc').style.display='block';
+    document.getElementById('mtzSrc').querySelector('a').textContent=pdfFileName||'MiraTuZona.com';
+  }catch(e){
+    document.getElementById('mtzContent').innerHTML='<p style="color:rgba(255,255,255,.4);text-align:center;padding:14px;font-size:12px">Error al analizar el PDF. Verifica que sea un informe válido de MiraTuZona.</p>';
+  }
+  document.getElementById('btnPDFAnalyze').disabled=false;
+  document.getElementById('pdfLoad').classList.remove('on');
+}
+
+// ══ AI ANALYSIS (without PDF) ══
+async function runAIAnalysis(){
+  const dir=document.getElementById('f_dir').value;
+  const barrio=document.getElementById('f_barrio').value;
+  const city=document.getElementById('f_city').value||'Barcelona';
+  const cp=document.getElementById('f_cp').value;
+  if(!dir){alert('Introduce la dirección en el paso 1.');return;}
+  const fullAddr=`${dir}${barrio?', '+barrio:''}, ${city}${cp?', '+cp:''}`;
+
+  document.getElementById('btnAI').disabled=true;
+  document.getElementById('aiLoad').classList.add('on');
+  document.getElementById('mtzContent').innerHTML='';
+
+  const prompt=`Eres un analista inmobiliario especializado en Barcelona.
+Analiza esta dirección para un dossier de local comercial: ${fullAddr}
+Coordenadas: ${coords?`${coords.lat},${coords.lon}`:'—'}
+
+Busca en miratuzona.com, INE, o fuentes oficiales. PRIORIDAD MÁXIMA en estos 5 indicadores:
+
+1. 🚶 PEATONES: Nivel de tránsito peatonal (Alto/Medio/Bajo), descripción del flujo comercial
+2. 🚇 METRO: Líneas cercanas, estación más próxima con distancia real en metros
+3. 🛒 SUPERMERCADOS: Cantidad en radio 500m, densidad comercial de la zona
+4. 👥 DENSIDAD: Densidad poblacional (hab/km²) de la sección censal
+5. 💰 RENTA PER CÁPITA: Renta media familiar por hogar (€/año) de la zona
+
+Datos secundarios: seguridad/10, ruido/10, salud/10, zonas verdes, bus, edad media, %extranjeros.
+Descripción profesional del local (3 párrafos, ~160 palabras). 4-5 puntos destacados.
+
+Responde SOLO con JSON (sin markdown):
+{"peatones":{"nivel":"Alto","descripcion":"Zona de alta afluencia..."},"metro":{"lineas":"L3","estacion_mas_cercana":"Les Corts","distancia":"180m"},"supermercados":{"cantidad":4,"descripcion":"Alta densidad..."},"densidad":{"valor":"18.500 hab/km²","hab_km2":18500},"renta_per_capita":{"valor":"52.000 €","tipo":"por hogar"},"seguridad":7.2,"ruido":3.5,"salud":9.0,"zonas_verdes":"Jardins Maternitat","transporte_bus":"Bus 7, 15, 54","edad_media":43,"extranjeros":"18%","zona":"Les Corts","tipo_zona":"Mixta residencial-comercial","highlights":[{"icon":"🚶","text":"Alta afluencia peatonal","c":"g"},{"icon":"🚇","text":"Metro L3 a 180m","c":"g"}],"descripcion":"El local está situado...","entorno":"- Metro L3\\n- Supermercados cercanos"}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1400,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    const m=raw.match(/\{[\s\S]*\}/);
+    if(!m)throw new Error('no json');
+    const d=JSON.parse(m[0]);
+    renderMTZResults(d);
+    if(d.descripcion)document.getElementById('f_desc').value=d.descripcion;
+    if(d.entorno)document.getElementById('f_entorno').value=d.entorno.replace(/\\n/g,'\n');
+    document.getElementById('mtzSrc').style.display='block';
+  }catch(e){
+    document.getElementById('mtzContent').innerHTML='<p style="color:rgba(255,255,255,.4);text-align:center;padding:14px;font-size:12px">Error al obtener los datos. Intenta subir el PDF de MiraTuZona para mejores resultados.</p>';
+  }
+  document.getElementById('btnAI').disabled=false;
+  document.getElementById('aiLoad').classList.remove('on');
+}
+
+// ══ RENDER MTZ RESULTS ══
+function renderMTZResults(d){
+  const p=d.peatones||{};
+  const me=d.metro||{};
+  const su=d.supermercados||{};
+  const de=d.densidad||{};
+  const re=d.renta_per_capita||{};
+
+  function peatColor(nivel){return nivel==='Alto'?'kv-green':nivel==='Medio'?'kv-yellow':'kv-red';}
+  function sc(v,inv=false){const r=inv?10-v:v;return r>=7?'kv-green':r>=4?'kv-yellow':'kv-red';}
+  function bar(v,max=10){return`<div class="kpi-bar"><div class="kpi-bar-f" style="width:${Math.min(100,v/max*100)}%"></div></div>`;}
+
+  const hl=(d.highlights||[]).map(h=>`<div class="hl"><div class="hd hd${h.c||'g'}"></div>${h.icon} ${h.text}</div>`).join('');
+  const tr=d.transporte_bus||'';
+
+  document.getElementById('mtzContent').innerHTML=`
+    ${d.zona?`<div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:white;font-weight:500;margin-bottom:2px">${d.zona}</div>`:''}
+    ${d.tipo_zona?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">${d.tipo_zona}</div>`:''}
+
+    <!-- 5 KPIs PRINCIPALES -->
+    <div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:8px">Indicadores clave de zona</div>
+    <div class="kpi-grid">
+      <div class="kpi ${peatColor(p.nivel)}">
+        <div class="kpi-ico">🚶</div>
+        <div class="kpi-lbl">Tránsito peatonal</div>
+        <div class="kpi-val">${p.nivel||'—'}</div>
+        <div class="kpi-sub">${p.descripcion?p.descripcion.substring(0,35)+'...':''}</div>
+      </div>
+      <div class="kpi kv-blue">
+        <div class="kpi-ico">🚇</div>
+        <div class="kpi-lbl">Metro</div>
+        <div class="kpi-val" style="font-size:12px">${me.estacion_mas_cercana||'—'}</div>
+        <div class="kpi-sub">${me.lineas||''} · ${me.distancia||''}</div>
+      </div>
+      <div class="kpi kv-green">
+        <div class="kpi-ico">🛒</div>
+        <div class="kpi-lbl">Supermercados</div>
+        <div class="kpi-val">${su.cantidad||'—'}</div>
+        <div class="kpi-sub">en radio 500m</div>
+      </div>
+      <div class="kpi kv-white">
+        <div class="kpi-ico">👥</div>
+        <div class="kpi-lbl">Densidad</div>
+        <div class="kpi-val" style="font-size:12px">${de.valor||'—'}</div>
+        <div class="kpi-sub">hab/km²</div>
+      </div>
+      <div class="kpi hi kv-gold">
+        <div class="kpi-ico">💰</div>
+        <div class="kpi-lbl">Renta familiar</div>
+        <div class="kpi-val" style="font-size:13px">${re.valor||'—'}</div>
+        <div class="kpi-sub">${re.tipo||'por hogar/año'}</div>
+      </div>
+    </div>
+
+    <!-- SECONDARY METRICS -->
+    <div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:600;margin:12px 0 8px">Otros indicadores</div>
+    <div class="sec-metrics">
+      <div class="sm"><div class="sm-l">Seguridad</div><div class="sm-v">${d.seguridad||'—'}/10</div></div>
+      <div class="sm"><div class="sm-l">Ruido</div><div class="sm-v">${d.ruido||'—'}/10</div></div>
+      <div class="sm"><div class="sm-l">Acceso sanitario</div><div class="sm-v">${d.salud||'—'}/10</div></div>
+      <div class="sm"><div class="sm-l">Edad media</div><div class="sm-v">${d.edad_media||'—'} años</div></div>
+      <div class="sm"><div class="sm-l">Pob. extranjera</div><div class="sm-v">${d.extranjeros||'—'}</div></div>
+      <div class="sm"><div class="sm-l">Zonas verdes</div><div class="sm-v">${d.zonas_verdes||'—'}</div></div>
+    </div>
+
+    ${tr?`<div class="sm" style="margin-bottom:8px"><div class="sm-l">Transporte bus</div><div class="sm-v">${tr}</div></div>`:''}
+    ${hl?`<div class="hl-row">${hl}</div>`:''}
+  `;
+}
+
+// ══ PHOTO UPLOAD ══
+function dropF(e,cat){e.preventDefault();e.currentTarget.classList.remove('drag');readFiles(Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')),cat);}
+function handleUp(inp,cat){readFiles(Array.from(inp.files),cat);inp.value='';}
+function readFiles(files,cat){files.forEach(f=>{const r=new FileReader();r.onload=e=>{photos[cat].push({src:e.target.result,name:f.name});renderGrid(cat);};r.readAsDataURL(f);});}
+function renderGrid(cat){
+  const g=document.getElementById('grid-'+cat),c=document.getElementById('count-'+cat);
+  g.innerHTML=photos[cat].map((p,i)=>`<div class="pt2"><img src="${p.src}"><button class="del" onclick="delPh('${cat}',${i})">×</button></div>`).join('');
+  c.textContent=photos[cat].length?`${photos[cat].length} foto${photos[cat].length>1?'s':''} cargada${photos[cat].length>1?'s':''}`:'';}
+function delPh(cat,i){photos[cat].splice(i,1);renderGrid(cat);}
+
+// ══ DOSSIER ══
+function vpLogo(){return`<svg width="74" height="38" viewBox="0 0 74 38" xmlns="http://www.w3.org/2000/svg"><path d="M3,25 L3,12 L13,4 L23,12 L23,25" fill="none" stroke="#1a1a1a" stroke-width="1.3"/><rect x="9" y="17" width="8" height="8" fill="none" stroke="#1a1a1a" stroke-width="1.1"/><line x1="0" y1="25" x2="26" y2="25" stroke="#1a1a1a" stroke-width="1"/><text x="51" y="19" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="16" font-weight="600" letter-spacing="4" fill="#1a1a1a">VISION</text><text x="51" y="29" text-anchor="middle" font-family="'DM Sans',sans-serif" font-size="6" letter-spacing="4.5" fill="#777">·PROPERTY·</text></svg>`;}
+function vpHdr(){return`<div class="vp-hd"><div>${vpLogo()}</div><div class="vp-contact"><a href="mailto:Info@visionproperty.com">Info@visionproperty.com</a><br>932 725 779<br>www.visionpropertygp.es<br>Pg. de Gràcia, 55 - 5-5<br>Barcelona · @visionpropertygp</div></div>`;}
+function ph2(a,b,lbl){return`<div class="d-page">${vpHdr()}<div class="d-photos-body"><span class="d-sec-bar">${lbl}</span><div class="d-2col"><div><img class="d-photo" src="${a.src}"></div>${b?`<div><img class="d-photo" src="${b.src}"></div>`:'<div></div>'}</div></div></div>`;}
+
+function genDossier(){
+  const v=id=>document.getElementById(id).value||'—';
+  const d={dir:v('f_dir'),barrio:v('f_barrio'),city:v('f_city'),desc:document.getElementById('f_desc').value||'',entorno:document.getElementById('f_entorno').value||'',
+    sup:v('f_sup'),alt:v('f_alt'),tipo:v('f_tipo'),fach:v('f_fach'),pb:v('f_pb'),sot:v('f_sot'),tot:v('f_tot'),
+    anyo:v('f_anyo'),acceso:v('f_acceso'),catref:v('f_catref'),renta:v('f_renta'),honor:v('f_honor'),cond:v('f_cond')};
+  const descFull=d.desc+(d.entorno?'\n\n'+d.entorno:'');
+  const portada=photos.ext[0]||null;
+  let pages='';
+
+  pages+=`<div class="d-page">${vpHdr()}
+    <div class="d-portada-bar">Calle ${d.dir} (${d.city})</div>
+    ${portada?`<img class="d-cover-img" src="${portada.src}">`:`<div class="d-cover-ph">Sin foto de portada</div>`}
+    <div class="d-specs-body"><span class="d-sec-bar">ESPECIFICACIONES TÉCNICAS</span>
+      <div class="d-specs-layout">
+        <div class="d-specs-desc">${descFull.replace(/\n/g,'<br>')||'<em style="color:#bbb">Sin descripción</em>'}</div>
+        <table class="d-tbl">
+          <tr class="dth"><td>Dirección</td><td>${d.dir}</td></tr>
+          <tr><td>Superficie construida</td><td>${d.sup}</td></tr>
+          <tr><td>Altura</td><td>${d.alt}</td></tr>
+          <tr><td>Tipología edificio</td><td>${d.tipo}</td></tr>
+          <tr><td>Fachada comercial</td><td>${d.fach}</td></tr>
+          <tr><td>Planta Baja</td><td>${d.pb}</td></tr>
+          ${d.sot!=='—'?`<tr><td>Sótano y altillo</td><td>${d.sot}</td></tr>`:''}
+          ${d.anyo!=='—'?`<tr><td>Año construcción</td><td>${d.anyo}</td></tr>`:''}
+          ${d.acceso!=='—'?`<tr><td>Acceso</td><td>${d.acceso}</td></tr>`:''}
+          ${d.catref!=='—'?`<tr><td>Ref. catastral</td><td style="font-size:10px">${d.catref}</td></tr>`:''}
+          <tr class="dtot"><td>Total</td><td>${d.tot}</td></tr>
+        </table>
+      </div>
+    </div></div>`;
+
+  if(photos.maps.length){
+    for(let i=0;i<photos.maps.length;i+=2){
+      const m1=photos.maps[i],m2=photos.maps[i+1]||null;
+      pages+=`<div class="d-page">${vpHdr()}<div class="d-map-body"><p style="font-size:11px;color:#999;margin-bottom:4px">Local en Estudio · ${m1.label}</p><img class="d-map-img" src="${m1.src}">${m2?`<img class="d-map-img" style="margin-top:10px;max-height:260px" src="${m2.src}">`:''}</div></div>`;
+    }
+  }
+  const extRest=photos.ext.slice(portada?1:0);
+  for(let i=0;i<extRest.length;i+=2)pages+=ph2(extRest[i],extRest[i+1]||null,'Documentación Gráfica');
+  for(let i=0;i<photos.int.length;i+=2)pages+=ph2(photos.int[i],photos.int[i+1]||null,'Documentación Gráfica');
+  photos.plan.forEach(p=>{pages+=`<div class="d-page">${vpHdr()}<div class="d-map-body"><span class="d-sec-bar">Plano Distribución</span><img class="d-plan-img" src="${p.src}"></div></div>`;});
+  const cL=d.cond.split('\n').filter(l=>l.trim()).map(l=>`<li>${l.trim()}</li>`).join('');
+  pages+=`<div class="d-page">${vpHdr()}<div class="d-cond-body"><div class="d-cond-title">Condiciones económicas</div><ul class="d-cond-list"><li>Renta mensual <strong>${d.renta}</strong> más IVA.</li>${cL}</ul><div class="d-honorarios">Honorarios asesoramiento a favor de Vision Property a cargo parte Arrendataria por<br>valor de un ${d.honor}.</div></div></div>`;
+
+  document.getElementById('dossier-pages').innerHTML=pages;
+  document.getElementById('dossier-bar-t').textContent=`✓ Dossier — ${d.dir}`;
+  document.getElementById('app').style.display='none';
+  document.getElementById('dossier-wrap').classList.add('show');
+  window.scrollTo(0,0);
+}
+function backToForm(){document.getElementById('app').style.display='flex';document.getElementById('dossier-wrap').classList.remove('show');window.scrollTo(0,0);}
+</script>
+</body>
+</html>
